@@ -2,7 +2,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 # from rich import print
-from dbService import create_connection
+from .dbService import create_connection
 import os
 import psycopg2
 
@@ -33,21 +33,22 @@ def chunk_text(text, max_length=2000, overlap=400):
         start += max_length - overlap
     return chunks
 
-with open(r"C:\Users\mhema\OneDrive\Documents\GenAI\GenAIProject\KB Creation\assets\27-10-2025-ET.txt", "r", encoding="utf-8") as f:
-    data = f.read()
+if __name__ == "__main__":
+    with open(r"C:\Users\mhema\OneDrive\Documents\GenAI\GenAIProject\KB Creation\assets\27-10-2025-ET.txt", "r", encoding="utf-8") as f:
+        data = f.read()
 
-chunks = chunk_text(data)
-conn = create_connection()
-cursor = conn.cursor()
-for chunk in chunks:
-    emb = generate_embeddings(chunk)
-    [embedding_obj] = emb
-    embedding_values = embedding_obj.values
-    cursor.execute(
-        "INSERT INTO embeddings_store (chunk, embedding) VALUES (%s, %s::vector)",
-        (chunk, embedding_values)
-    )
-conn.commit()
-cursor.close()
-conn.close()
-print(len(chunks))
+    chunks = chunk_text(data)
+    conn = create_connection()
+    cursor = conn.cursor()
+    for chunk in chunks:
+        emb = generate_embeddings(chunk)
+        [embedding_obj] = emb
+        embedding_values = embedding_obj.values
+        cursor.execute(
+            "INSERT INTO embeddings_store (chunk, embedding) VALUES (%s, %s::vector)",
+            (chunk, embedding_values)
+        )
+    conn.commit()
+    cursor.close()
+    conn.close()
+    print(len(chunks))
