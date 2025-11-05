@@ -29,7 +29,7 @@ def call_llm(user_prompt, system_prompt="You are personalized AI Assitant"):
         contents = contents,
         config = generate_content_config
     )
-    return extractJSON(response.text)
+    return response.text
 
 """
 News
@@ -54,7 +54,7 @@ def intent_classifer(user_prompt):
         }
     """
     response = call_llm(user_prompt, system_prompt)
-    return response
+    return extractJSON(response)
 
 
 if __name__ == "__main__":
