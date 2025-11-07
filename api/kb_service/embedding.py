@@ -33,14 +33,14 @@ def chunk_text(text, max_length=2000, overlap=400):
         start += max_length - overlap
     return chunks
 
-if __name__ == "__main__":
-    with open(r"C:\Users\mhema\OneDrive\Documents\GenAI\GenAIProject\KB Creation\assets\27-10-2025-ET.txt", "r", encoding="utf-8") as f:
-        data = f.read()
-
+def create_kb(data):
     chunks = chunk_text(data)
     conn = create_connection()
     cursor = conn.cursor()
+    print(len(chunks))
+    i = 1
     for chunk in chunks:
+        print(i)
         emb = generate_embeddings(chunk)
         [embedding_obj] = emb
         embedding_values = embedding_obj.values
@@ -48,7 +48,15 @@ if __name__ == "__main__":
             "INSERT INTO embeddings_store (chunk, embedding) VALUES (%s, %s::vector)",
             (chunk, embedding_values)
         )
+        i += 1
     conn.commit()
     cursor.close()
     conn.close()
     print(len(chunks))
+    return len(chunks)
+
+
+if __name__ == "__main__":
+    with open(r"C:\Users\mhema\OneDrive\Documents\GenAI\GenAIProject\KB Creation\assets\27-10-2025-ET.txt", "r", encoding="utf-8") as f:
+        data = f.read()
+

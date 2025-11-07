@@ -1,12 +1,20 @@
 from aiService import call_llm, intent_classifer
 from kb_service.similarity_search import similarity_search
-from flask import Flask, request
+from kb_service.pdf_extraction import extract_pdf_to_txt
+from kb_service.embedding import create_kb
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from contants import set_system_instruction
 from utils import extractJSON
+import uuid
+import os
 
 app = Flask(__name__)
 CORS(app)
+
+app.config['UPLOAD_FOLDER'] = 'uploads/'
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 100
+
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -30,19 +38,19 @@ def chat():
                 }, 200
             else:
                 try:
-                    datas = similarity_search(message)
+                    datas = similarity_search(message, top_k=10)
                     context = ""
                     for data in datas:
                         context += data[0]
                         context += ".  \n"
-                        system_instruction = set_system_instruction(context, message)
-                        llm_response = call_llm(message, system_instruction)
-                        responseJSON = extractJSON(llm_response)
-                        summary = responseJSON.get("summary")
-                        return {
-                            "message" : summary,
-                            "status" : 200
-                        }, 200
+                    system_instruction = set_system_instruction(context, message)
+                    llm_response = call_llm(message, system_instruction)
+                    responseJSON = extractJSON(llm_response)
+                    summary = responseJSON.get("summary")
+                    return {
+                        "message" : summary,
+                        "status" : 200
+                    }, 200
                 except Exception as err:
                     return {
                             "message" : "Something Went Wrong",
@@ -59,6 +67,49 @@ def chat():
             "message" : "BAD Request",
             "status" : 400
         }, 400
+
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    """
+    Handle single file upload.
+    Expects 'files' as a multi-part form field (even for single file).
+    """
+    try:
+        print(request.files)
+        # Check if file was uploaded
+        if 'files' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['files']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Secure the filename and create unique name
+        filename = file.filename
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+        
+        # Save the file
+        file.save(filepath)
+
+        text_data = extract_pdf_to_txt(filepath, f'kb_info/{unique_filename}.txt')
+        print("KB Builiding is Started")
+        create_kb(data=text_data)
+        print("KB Builiding is Completed")
+        # Return success response
+        return jsonify({
+            'message': 'File uploaded successfully',
+            'file_info': {
+                'original_name': file.filename,
+                'stored_name': unique_filename,
+                'size': os.path.getsize(filepath)
+            }
+        }), 201
+        
+    except Exception as e:
+        return jsonify({'error': 'Internal server error during upload' + str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True)
